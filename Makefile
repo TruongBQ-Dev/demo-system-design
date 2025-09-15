@@ -255,3 +255,14 @@ info:
 	@echo "  - 8080: API Gateway"
 	@echo "  - 3307: MySQL Database"
 	@echo "  - 9113: Nginx Exporter (with monitoring profile)" 
+
+setup-sql-master:
+	docker exec -i mysql-master \
+		mysql -uroot -prootpass -e "CREATE USER IF NOT EXISTS 'repl'@'%' IDENTIFIED WITH mysql_native_password BY 'replpass'; \
+		GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%'; FLUSH PRIVILEGES; \
+		FLUSH TABLES WITH READ LOCK; SHOW MASTER STATUS\G" > master-status.txt
+setup-sql-slave:
+	$(eval LOG_FILE=$(shell grep "File:" master-status.txt | awk '{print $$2}'))
+	$(eval LOG_POS=$(shell grep "Position:" master-status.txt | awk '{print $$2}'))
+	docker exec -i mysql-slave \
+		mysql -uroot -prootpassword -e "CHANGE MASTER TO MASTER_HOST='mysql-master', MASTER_USER='repl', MASTER_PASSWORD='replpass', MASTER_LOG_FILE='$(LOG_FILE)', MASTER_LOG_POS=$(LOG_POS); START SLAVE;"
