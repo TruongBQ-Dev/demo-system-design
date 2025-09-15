@@ -1,0 +1,41 @@
+{
+  "name": "Name",
+  "email": "Email",
+  "status": "Status",
+  "createdAt": "Created At",
+  "updatedAt": "Updated At",
+  "fullName": "Full Name",
+  "inputFullName": "Enter full name",
+  "inputEmail": "Enter email address",
+  "password": "Password",
+  "inputPassword": "Enter password",
+  "confirmPassword": "Confirm Password",
+  "inputConfirmPassword": "Re-enter password",
+  "remember": "Remember me",
+  "forgotPassword": "Forgot password?",
+  "agreeTerms": {
+    "prefix": "I agree to the",
+    "terms": "Terms of Service",
+    "and": "and",
+    "privacy": "Privacy Policy"
+  },
+  "login": "Login",
+  "register": "Register",
+  "or": "Or",
+  "loginWithGoogle": " with Google",
+  "loginWithFacebook": " with Facebook",
+  "dontHaveAccount": "Don't have an account?",
+  "alreadyHaveAccount": "Already have an account?",
+  "signUpNow": "Sign up now",
+  "welcomeBack": "Welcome back",
+  "createAccount": "Create a new account",
+  "validate": {
+    "nameRequired": "Please enter your full name",
+    "emailRequired": "Please enter your email address",
+    "emailInvalid": "Invalid email address",
+    "passwordRequired": "Please enter your password",
+    "passwordMinLength": "Password must be at least 6 characters",
+    "confirmPasswordRequired": "Please confirm your password",
+    "confirmPasswordMatch": "Passwords do not match"
+  }
+}

@@ -1,0 +1,219 @@
+services:
+  # Database
+  mysql:
+    image: mysql:8.0
+    container_name: demo_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: demo_db
+      MYSQL_USER: demo_user
+      MYSQL_PASSWORD: demo_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/init.sql:/docker-entrypoint-initdb.d
+    ports:
+      - "3307:3306"
+    networks:
+      - demo_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+      interval: 30s
+      start_period: 30s
+    restart: unless-stopped
+
+  # Database Migration Service
+  db-migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: demo_db_migrate
+    environment:
+      - DATABASE_URL=mysql://demo_user:demo_password@mysql:3306/demo_db
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - demo_network
+    command: sh -c "npx prisma generate && npx prisma db push --accept-data-loss"
+    restart: "no"
+
+  # Backend instances
+  backend-1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: demo_backend_1
+    environment:
+      - DATABASE_URL=mysql://demo_user:demo_password@mysql:3306/demo_db
+      - JWT_SECRET=MKmQy9eujOrThzuaOvkP55Oslv8UqSKOyo6J2xIW9nYjFHu56BmkfbQyANXwEv96VWP65UBbEooCGy4J4I0ZYQ==
+      - JWT_EXPIRES_IN=7d
+      - PORT=3000
+      - NODE_ENV=production
+    depends_on:
+      mysql:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    networks:
+      - demo_network
+    restart: unless-stopped
+    # Scale settings
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  backend-2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: demo_backend_2
+    environment:
+      - DATABASE_URL=mysql://demo_user:demo_password@mysql:3306/demo_db
+      - JWT_SECRET=MKmQy9eujOrThzuaOvkP55Oslv8UqSKOyo6J2xIW9nYjFHu56BmkfbQyANXwEv96VWP65UBbEooCGy4J4I0ZYQ==
+      - JWT_EXPIRES_IN=7d
+      - PORT=3000
+      - NODE_ENV=production
+    depends_on:
+      mysql:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    networks:
+      - demo_network
+    restart: unless-stopped
+    # Scale settings
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Frontend instances
+  frontend-1:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        API_BASE_URL: http://localhost:8080
+    container_name: demo_frontend_1
+    environment:
+      - API_BASE_URL=http://localhost:8080
+      - NUXT_PORT=3000
+      - NODE_ENV=production
+    depends_on:
+      - backend-1
+      - backend-2
+    networks:
+      - demo_network
+    restart: unless-stopped
+    # Scale settings
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  frontend-2:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        API_BASE_URL: http://localhost:8080
+    container_name: demo_frontend_2
+    environment:
+      - API_BASE_URL=http://localhost:8080
+      - NUXT_PORT=3000
+      - NODE_ENV=production
+    depends_on:
+      - backend-1
+      - backend-2
+    networks:
+      - demo_network
+    restart: unless-stopped
+    # Scale settings
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+    # Backend Load Balancer
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Nginx Gateway - Unified Load Balancer & API Gateway
+  nginx-gateway:
+    image: nginx:alpine
+    container_name: demo_nginx_gateway
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8000:8000" # Frontend Load Balancer (Port 8000)
+      - "8080:8080" # API Gateway with Load Balancing (Port 8080)
+    depends_on:
+      - frontend-1
+      - frontend-2
+    networks:
+      - demo_network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8000/",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Monitoring và Logging (Optional)
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: demo_nginx_exporter
+    command:
+      - "-nginx.scrape-uri=http://nginx-gateway:8000/nginx_status"
+    ports:
+      - "9113:9113"
+    depends_on:
+      - nginx-gateway
+    networks:
+      - demo_network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  demo_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.23.0.0/16

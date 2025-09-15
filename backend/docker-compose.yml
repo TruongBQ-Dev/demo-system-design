@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: nest-base-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: nest_base
+      MYSQL_USER: nestjs
+      MYSQL_PASSWORD: nestjs
+    ports:
+      - '9906:3306'
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - nest-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nest-base-app
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env.docker
+    ports:
+      - '3000:3000'
+    networks:
+      - nest-network
+    command: >
+      sh -c "
+        npx prisma db push &&
+        node dist/main
+      "
+
+volumes:
+  mysql_data:
+
+networks:
+  nest-network:
+    driver: bridge

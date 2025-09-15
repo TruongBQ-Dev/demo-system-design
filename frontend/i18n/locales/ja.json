@@ -1,0 +1,41 @@
+{
+  "name": "名前",
+  "email": "メール",
+  "status": "ステータス",
+  "createdAt": "作成日",
+  "updatedAt": "更新日",
+  "fullName": "氏名",
+  "inputFullName": "氏名を入力",
+  "inputEmail": "メールアドレスを入力",
+  "password": "パスワード",
+  "inputPassword": "パスワードを入力",
+  "confirmPassword": "パスワード確認",
+  "inputConfirmPassword": "パスワードを再入力",
+  "remember": "ログイン状態を保持する",
+  "forgotPassword": "パスワードをお忘れですか？",
+  "agreeTerms": {
+    "prefix": "私は同意します",
+    "terms": "利用規約",
+    "and": "と",
+    "privacy": "プライバシーポリシー"
+  },
+  "login": "ログイン",
+  "register": "登録",
+  "or": "または",
+  "loginWithGoogle": " Googleでログイン",
+  "loginWithFacebook": " Facebookでログイン",
+  "dontHaveAccount": "アカウントをお持ちでないですか？",
+  "alreadyHaveAccount": "すでにアカウントをお持ちですか？",
+  "signUpNow": "今すぐ登録",
+  "welcomeBack": "お帰りなさい",
+  "createAccount": "新しいアカウントを作成",
+  "validate": {
+    "nameRequired": "氏名を入力してください",
+    "emailRequired": "メールアドレスを入力してください",
+    "emailInvalid": "無効なメールアドレスです",
+    "passwordRequired": "パスワードを入力してください",
+    "passwordMinLength": "パスワードは6文字以上で入力してください",
+    "confirmPasswordRequired": "パスワード確認を入力してください",
+    "confirmPasswordMatch": "パスワードが一致しません"
+  }
+}

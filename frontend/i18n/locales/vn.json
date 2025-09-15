@@ -1,0 +1,41 @@
+{
+  "name": "Tên",
+  "email": "Email",
+  "status": "Trạng thái",
+  "createdAt": "Ngày tạo",
+  "updatedAt": "Ngày cập nhật",
+  "fullName": "Họ và tên",
+  "inputFullName": "Nhập họ và tên",
+  "inputEmail": "Nhập địa chỉ email",
+  "password": "Mật khẩu",
+  "inputPassword": "Nhập mật khẩu",
+  "confirmPassword": "Xác nhận mật khẩu",
+  "inputConfirmPassword": "Nhập lại mật khẩu",
+  "remember": "Ghi nhớ đăng nhập",
+  "forgotPassword": "Quên mật khẩu?",
+  "agreeTerms": {
+    "prefix": "Tôi đồng ý với",
+    "terms": "Điều khoản sử dụng",
+    "and": "và",
+    "privacy": "Chính sách bảo mật"
+  },
+  "login": "Đăng nhập",
+  "register": "Đăng ký",
+  "or": "Hoặc",
+  "loginWithGoogle": " với Google",
+  "loginWithFacebook": " với Facebook",
+  "dontHaveAccount": "Chưa có tài khoản?",
+  "alreadyHaveAccount": "Đã có tài khoản?",
+  "signUpNow": "Đăng ký ngay",
+  "welcomeBack": "Chào mừng trở lại",
+  "createAccount": "Tạo tài khoản mới",
+  "validate": {
+    "nameRequired": "Vui lòng nhập họ và tên",
+    "emailRequired": "Vui lòng nhập địa chỉ email",
+    "emailInvalid": "Địa chỉ email không hợp lệ",
+    "passwordRequired": "Vui lòng nhập mật khẩu",
+    "passwordMinLength": "Mật khẩu phải có ít nhất 6 ký tự",
+    "confirmPasswordRequired": "Vui lòng xác nhận mật khẩu",
+    "confirmPasswordMatch": "Mật khẩu xác nhận không khớp"
+  }
+}
