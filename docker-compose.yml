@@ -1,18 +1,19 @@
 services:
   # Database
-  mysql:
+  mysql-master:
     image: mysql:8.0
-    container_name: demo_mysql
+    container_name: mysql-master
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: demo_db
       MYSQL_USER: demo_user
       MYSQL_PASSWORD: demo_password
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./backend/init.sql:/docker-entrypoint-initdb.d
     ports:
-      - "3307:3306"
+      - "33017:3306"
+    volumes:
+      - master_data:/var/lib/mysql
+      - ./mysql/master:/etc/mysql/conf.d
+      - ./backend/init.sql:/docker-entrypoint-initdb.d
     networks:
       - demo_network
     healthcheck:
@@ -22,28 +23,17 @@ services:
       interval: 30s
       start_period: 30s
     restart: unless-stopped
-
-  mysql-master:
-    image: mysql:8.0
-    container_name: mysql-master
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: demo_db
-    ports:
-      - "3308:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./mysql/master:/etc/mysql/conf.d
   mysql-slave:
     image: mysql:8.0
     container_name: mysql-slave
     environment:
       MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: demo_db
+      MYSQL_DATABASE: demo_db_master
+    command: --default-authentication-plugin=mysql_native_password
     ports:
-      - "3309:3306"
+      - "33019:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - slave_data:/var/lib/mysql
       - ./mysql/slave:/etc/mysql/conf.d
     depends_on:
       - mysql-master
@@ -54,9 +44,9 @@ services:
       dockerfile: Dockerfile
     container_name: demo_db_migrate
     environment:
-      - DATABASE_URL=mysql://demo_user:demo_password@mysql:3306/demo_db
+      - DATABASE_URL=mysql://demo_user:demo_password@mysql-master:3306/demo_db
     depends_on:
-      mysql:
+      mysql-master:
         condition: service_healthy
     networks:
       - demo_network
@@ -70,13 +60,13 @@ services:
       dockerfile: Dockerfile
     container_name: demo_backend_1
     environment:
-      - DATABASE_URL=mysql://demo_user:demo_password@mysql:3306/demo_db
+      - DATABASE_URL=mysql://demo_user:demo_password@mysql-master:3306/demo_db
       - JWT_SECRET=MKmQy9eujOrThzuaOvkP55Oslv8UqSKOyo6J2xIW9nYjFHu56BmkfbQyANXwEv96VWP65UBbEooCGy4J4I0ZYQ==
       - JWT_EXPIRES_IN=7d
       - PORT=3000
       - NODE_ENV=production
     depends_on:
-      mysql:
+      mysql-master:
         condition: service_healthy
       db-migrate:
         condition: service_completed_successfully
@@ -97,13 +87,13 @@ services:
       dockerfile: Dockerfile
     container_name: demo_backend_2
     environment:
-      - DATABASE_URL=mysql://demo_user:demo_password@mysql:3306/demo_db
+      - DATABASE_URL=mysql://demo_user:demo_password@mysql-master:3306/demo_db
       - JWT_SECRET=MKmQy9eujOrThzuaOvkP55Oslv8UqSKOyo6J2xIW9nYjFHu56BmkfbQyANXwEv96VWP65UBbEooCGy4J4I0ZYQ==
       - JWT_EXPIRES_IN=7d
       - PORT=3000
       - NODE_ENV=production
     depends_on:
-      mysql:
+      mysql-master:
         condition: service_healthy
       db-migrate:
         condition: service_completed_successfully
@@ -232,8 +222,6 @@ services:
       - monitoring
 
 volumes:
-  mysql_data:
-    driver: local
   master_data:
     driver: local
   slave_data:

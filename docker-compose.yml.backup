@@ -12,7 +12,7 @@ services:
       - mysql_data:/var/lib/mysql
       - ./backend/init.sql:/docker-entrypoint-initdb.d
     ports:
-      - "3307:3306"
+      - "33017:3306"
     networks:
       - demo_network
     healthcheck:
