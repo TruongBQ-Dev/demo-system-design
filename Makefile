@@ -253,5 +253,28 @@ info:
 	@echo "Available ports:"
 	@echo "  - 8000: Frontend Load Balancer"
 	@echo "  - 8080: API Gateway"
-	@echo "  - 3307: MySQL Database"
+	@echo "  - 33017: MySQL Database"
 	@echo "  - 9113: Nginx Exporter (with monitoring profile)" 
+
+setup-sql-master:
+	docker exec -i mysql-master \
+		mysql -uroot -prootpass -e "CREATE USER IF NOT EXISTS 'repl'@'%' IDENTIFIED WITH mysql_native_password BY 'replpass'; \
+		GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%'; FLUSH PRIVILEGES; \
+		FLUSH TABLES WITH READ LOCK; SHOW MASTER STATUS\G" > master-status.txt
+setup-sql-slave:
+	$(eval LOG_FILE=$(shell grep "File:" master-status.txt | awk '{print $$2}'))
+	$(eval LOG_POS=$(shell grep "Position:" master-status.txt | awk '{print $$2}'))
+	docker exec -i mysql-slave \
+		mysql -uroot -prootpass -e "CHANGE MASTER TO MASTER_HOST='mysql-master', MASTER_USER='repl', MASTER_PASSWORD='replpass', MASTER_LOG_FILE='$(LOG_FILE)', MASTER_LOG_POS=$(LOG_POS); START SLAVE;"
+
+export-master:
+	docker exec -i mysql-master mysqldump -uroot -prootpass \
+		--all-databases --master-data=2 --single-transaction --flush-logs \
+		> dump.sql
+# Import dữ liệu từ dump.sql vào Slave
+import-slave:
+	docker exec -i mysql-slave mysql -uroot -prootpass < dump.sql
+
+# Reset Slave replication (xóa config cũ, dùng khi đổi master hoặc sync lại từ đầu)
+reset-slave:
+	docker exec -i mysql-slave mysql -uroot -prootpass -e "STOP SLAVE; RESET SLAVE ALL;"

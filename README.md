@@ -85,7 +85,7 @@ docker compose logs db-migrate  # Migration logs
 - **Health Checks**:
   - Frontend: http://localhost:8000/
   - Backend: http://localhost:8080/health
-- **Database**: MySQL external port 3307
+- **Database**: MySQL external port 33017
 
 ### 2. Test load distribution
 
@@ -124,7 +124,7 @@ make test-stress
 
 - **Frontend (via Frontend LB)**: `http://localhost:8000/`
 - **Backend API (via API Gateway)**: `http://localhost:8080/health`
-- **Database**: `mysql://localhost:3307` (MySQL external port)
+- **Database**: `mysql://localhost:33017` (MySQL external port)
 - **Internal Network**:
   - Backend instances: `http://backend-1:3000/health`, `http://backend-2:3000/health`
   - Frontend instances: `http://frontend-1:3000/`, `http://frontend-2:3000/`
@@ -198,7 +198,7 @@ upstream backend_servers {
                                                      ┌─────────────────┐
                                                      │     mysql       │
                                                      │   Port: 3306    │
-                                                     │ (External: 3307)│
+                                                     │ (External: 33017)│
                                                      └─────────────────┘
 ```
 
