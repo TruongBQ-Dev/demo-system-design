@@ -221,6 +221,17 @@ services:
     profiles:
       - monitoring
 
+  # cache with redis
+  redis:
+    image: redis:alpine
+    container_name: demo_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis_data:/data
+    networks:
+      - demo_network
+
 volumes:
   master_data:
     driver: local

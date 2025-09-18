@@ -13,14 +13,20 @@ Internet
            ↓                    ↓
     [backend-1]         [backend-2] ← NestJS instances
            ↓                    ↓
-           [MySQL Database]
+           ├─────[Redis Cache]──┤ ← Session & Data Caching
+           ↓                    ↓
+    [MySQL Master] ←─ Replication ─→ [MySQL Slave]
+    (Read/Write)                      (Read Only)
 ```
 
 ## 📦 Các thành phần
 
 - **Frontend**: 2 instances Nuxt.js (Vue 3 + TypeScript + Ant Design Vue)
-- **Backend**: 2 instances NestJS (TypeScript + Prisma + MySQL)
-- **Database**: MySQL 8.0
+- **Backend**: 2 instances NestJS (TypeScript + Prisma + MySQL + Redis)
+- **Database**: 
+  - **MySQL Master** (Port 33017): Read/Write operations với binary logging
+  - **MySQL Slave** (Port 33019): Read-only replica với relay logging
+- **Cache**: Redis (Port 6379) - Session storage & data caching
 - **Load Balancer**: 1 Nginx instance (nginx-gateway)
   - **Frontend LB (Port 8000)**: Load balancing giữa frontend instances
   - **API Gateway (Port 8080)**: Load balancing giữa backend instances
@@ -62,6 +68,10 @@ After starting, you can access:
 - 🔌 **API Gateway**: http://localhost:8080
 - 📚 **API Documentation**: http://localhost:8080/api
 - ❤️ **Health Check**: http://localhost:8080/health
+- 🗄️ **Database**:
+  - **MySQL Master**: localhost:33017 (Read/Write)
+  - **MySQL Slave**: localhost:33019 (Read Only)
+- 🚀 **Cache**: Redis localhost:6379
 
 ### 4. Kiểm tra status
 
@@ -85,7 +95,10 @@ docker compose logs db-migrate  # Migration logs
 - **Health Checks**:
   - Frontend: http://localhost:8000/
   - Backend: http://localhost:8080/health
-- **Database**: MySQL external port 33017
+- **Database**: 
+  - MySQL Master: localhost:33017 (Read/Write)
+  - MySQL Slave: localhost:33019 (Read Only)
+- **Cache**: Redis localhost:6379
 
 ### 2. Test load distribution
 
@@ -124,11 +137,16 @@ make test-stress
 
 - **Frontend (via Frontend LB)**: `http://localhost:8000/`
 - **Backend API (via API Gateway)**: `http://localhost:8080/health`
-- **Database**: `mysql://localhost:33017` (MySQL external port)
+- **Database**: 
+  - MySQL Master: `mysql://localhost:33017` (Read/Write)
+  - MySQL Slave: `mysql://localhost:33019` (Read Only)
+- **Cache**: `redis://localhost:6379`
 - **Internal Network**:
   - Backend instances: `http://backend-1:3000/health`, `http://backend-2:3000/health`
   - Frontend instances: `http://frontend-1:3000/`, `http://frontend-2:3000/`
-  - MySQL: `mysql://mysql:3306`
+  - MySQL Master: `mysql://mysql-master:3306`
+  - MySQL Slave: `mysql://mysql-slave:3306`
+  - Redis: `redis://redis:6379`
 
 #### **Nginx Configuration Details:**
 
@@ -182,24 +200,30 @@ upstream backend_servers {
       │  Nuxt.js + Vue3 │                           │   NestJS:22     │
       │  + Ant Design   │                           │   + Prisma      │
       │  Port: 3000     │                           │   + Swagger     │
-      └─────────────────┘                           │   Port: 3000    │
-      ┌─────────────────┐                           │   (CORS enabled)│
-      │  frontend-2     │                           └─────────────────┘
+      └─────────────────┘                           │   + Redis       │
+      ┌─────────────────┐                           │   Port: 3000    │
+      │  frontend-2     │                           └─────────┬───────┘
       │  Nuxt.js + Vue3 │                           ┌─────────────────┐
       │  + Ant Design   │                           │   backend-2     │
       │  Port: 3000     │                           │   NestJS:22     │
       └─────────────────┘                           │   + Prisma      │
                                                     │   + Swagger     │
+                                                    │   + Redis       │
                                                     │   Port: 3000    │
-                                                    │   (CORS enabled)│
                                                     └─────────┬───────┘
                                                               │
-                                                              ▼
-                                                     ┌─────────────────┐
-                                                     │     mysql       │
-                                                     │   Port: 3306    │
-                                                     │ (External: 33017)│
-                                                     └─────────────────┘
+                        ┌─────────────────────────────────────┼─────────────────┐
+                        │                                     │                 │
+                        ▼                                     ▼                 ▼
+               ┌─────────────────┐                   ┌─────────────────┐ ┌─────────────────┐
+               │  redis (cache)  │                   │  mysql-master   │ │  mysql-slave    │
+               │   Port: 6379    │                   │   (Read/Write)  │ │   (Read Only)   │
+               │ (External: 6379)│                   │   Port: 3306    │ │   Port: 3306    │
+               └─────────────────┘                   │ (External:33017)│ │ (External:33019)│
+                                                     └─────────┬───────┘ └─────────────────┘
+                                                               │
+                                                               ▼
+                                                          [Replication]
 ```
 
 **Key Architecture Points:**
@@ -209,6 +233,8 @@ upstream backend_servers {
 - **Backend Load Balancing**: API Gateway → Backend instances (round-robin)
 - **Frontend Load Balancing**: Frontend LB → Frontend instances (least_conn)
 - **Database Migration**: Automated via `db-migrate` service on startup
+- **Master-Slave Replication**: MySQL Master handles writes, Slave for read operations
+- **Caching Layer**: Redis for session storage and data caching
 - **Internal Networking**: All communication via Docker network except external ports
 
 **Request Flow (Optimized Architecture):**
@@ -217,15 +243,20 @@ upstream backend_servers {
 1. Frontend Request: Browser → localhost:8000 → nginx-gateway:8000 → frontend-1/2:3000
 2. API Request:     Browser → localhost:8080 → nginx-gateway:8080 → backend-1/2:3000
 3. API Docs:        Browser → localhost:8080/api → nginx-gateway:8080 → backend-1/2:3000/api
-4. Database:        Backend → mysql:3306
+4. Database Write:  Backend → mysql-master:3306 (Read/Write operations)
+5. Database Read:   Backend → mysql-slave:3306 (Read-only operations)
+6. Cache Access:    Backend → redis:6379 (Session & data caching)
+7. Replication:     mysql-master → mysql-slave (Binary log replication)
 ```
 
 **Containers Summary:**
 
 - `demo_nginx_gateway`: **Unified Load Balancer** (Frontend LB + API Gateway)
 - `demo_frontend_1/2`: **Frontend Instances** (Nuxt.js + Vue 3 + Ant Design Vue + i18n)
-- `demo_backend_1/2`: **Backend Instances** (NestJS + Prisma + Swagger + JWT + CORS)
-- `demo_mysql`: **Database** (MySQL 8.0)
+- `demo_backend_1/2`: **Backend Instances** (NestJS + Prisma + Swagger + JWT + CORS + Redis)
+- `mysql-master`: **Primary Database** (MySQL 8.0 - Read/Write operations)
+- `mysql-slave`: **Replica Database** (MySQL 8.0 - Read-only operations)
+- `demo_redis`: **Cache Layer** (Redis - Session storage & data caching)
 - `demo_db_migrate`: **Migration Service** (One-time Prisma migration)
 
 ### Manual Testing (Optional)
@@ -245,11 +276,21 @@ done
 
 # Test API Documentation
 curl -s http://localhost:8080/api | head -5
+
+# Test Redis connection
+redis-cli -h localhost -p 6379 ping
+
+# Test MySQL Master connection
+mysql -h localhost -P 33017 -u demo_user -pdemo_password -e "SELECT 'Master Connected' as status;"
+
+# Test MySQL Slave connection  
+mysql -h localhost -P 33019 -u root -prootpass -e "SELECT 'Slave Connected' as status;"
 ```
 
 ### 3. Test failover
 
 ```bash
+# Test Backend Failover
 # Stop một backend instance
 docker compose stop backend-1
 
@@ -258,6 +299,29 @@ curl http://localhost:8080/health
 
 # Restart
 docker compose start backend-1
+
+# Test Database Failover
+# Stop MySQL Master (simulate failure)
+docker compose stop mysql-master
+
+# Test if application can handle master failure
+curl http://localhost:8080/health
+
+# Check slave status
+mysql -h localhost -P 33019 -u root -prootpass -e "SHOW SLAVE STATUS\G"
+
+# Restart master
+docker compose start mysql-master
+
+# Test Redis Failover
+# Stop Redis temporarily
+docker compose stop demo_redis
+
+# Test API still works (without cache)
+curl http://localhost:8080/health
+
+# Restart Redis
+docker compose start demo_redis
 ```
 
 ```bash
